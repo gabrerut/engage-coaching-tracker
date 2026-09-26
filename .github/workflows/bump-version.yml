@@ -1,0 +1,58 @@
+name: Auto-bump userscript version
+
+# Every push to main that changes the script auto-increments the @version patch
+# number and commits it back. Tampermonkey checks @updateURL, sees the higher
+# version, and pulls the new file for everyone who installed it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engage-coaching-tracker.user.js"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    # Skip the bot's own bump commit (and any commit tagged [skip ci]).
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bump @version patch number
+        id: bump
+        run: |
+          FILE="engage-coaching-tracker.user.js"
+          CURRENT=$(grep -m1 -oP '@version\s+\K[0-9]+(\.[0-9]+)*' "$FILE")
+          if [ -z "$CURRENT" ]; then
+            echo "Could not find @version in $FILE" >&2
+            exit 1
+          fi
+          # Increment the LAST field (41 -> 42, 41.9 -> 41.10).
+          IFS='.' read -r -a PARTS <<< "$CURRENT"
+          LAST_IDX=$(( ${#PARTS[@]} - 1 ))
+          PARTS[$LAST_IDX]=$(( ${PARTS[$LAST_IDX]} + 1 ))
+          NEW=$(IFS='.'; echo "${PARTS[*]}")
+          echo "$CURRENT -> $NEW"
+          # Replace only the first @version meta line.
+          sed -i -E "0,/(\/\/ @version\s+).*/s//\1$NEW/" "$FILE"
+          echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add engage-coaching-tracker.user.js
+          if git diff --cached --quiet; then
+            echo "No version change to commit."
+            exit 0
+          fi
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git push
