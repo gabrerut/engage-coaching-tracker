@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = '42.10';
+    var CURRENT_VERSION = '42.11';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -3097,7 +3097,7 @@
             var rowStyle = isUndo ? ' style="background:#fef2f2;"' : '';
             rows += '<tr' + rowStyle + '><td>' + (e.login||'-') + '</td><td>' + mtr + '</td><td>' + (e.completedBy||'?') + '</td><td>' + when + '</td><td>' + actHtml + '</td></tr>';
         }
-        return '<div style="font-size:9px;color:#64748b;padding:2px 4px 6px;">Today's log — all leaders, newest first. \u2705 DONE / \u21A9 UNDO.</div>'
+        return '<div style="font-size:9px;color:#64748b;padding:2px 4px 6px;">Today\'s log — all leaders, newest first. \u2705 DONE / \u21A9 UNDO.</div>'
              + '<table class="ct-drop-table"><thead><tr><th>Assoc</th><th>Metric</th><th>By</th><th>When</th><th>Action</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
