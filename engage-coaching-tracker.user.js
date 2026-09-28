@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = '42.11';
+    var CURRENT_VERSION = '42.12';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -1417,7 +1417,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.10</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v' + CURRENT_VERSION + '</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
