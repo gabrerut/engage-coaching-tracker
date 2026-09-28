@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = '42.14';
+    var CURRENT_VERSION = '42.15';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -740,8 +740,8 @@
         '.mm-row { background: #FFF0F0 !important; border-left: 4px solid #FF4444 !important; }',
         '#mm-panel { position: fixed; bottom: 80px; right: 20px; z-index: 100001; background: #fff; color: #333; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; width: 480px; max-height: min(600px, calc(100vh - 100px)); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); display: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
         '#mm-panel.visible { display: flex; flex-direction: column; }',
-        '#mm-panel.ct-size-lg { width: 640px; max-height: min(760px, calc(100vh - 60px)); }',
-        '#mm-panel.ct-size-xl { width: 820px; max-height: min(880px, calc(100vh - 40px)); }',
+        '#mm-panel.ct-size-lg { zoom: 1.15; }',
+        '#mm-panel.ct-size-xl { zoom: 1.30; }',
         '#mm-panel h3 { margin: 0; font-size: 15px; color: #1e293b; font-weight: 700; }',
         '#mm-panel .mm-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 16px 16px 0 0; cursor: grab; user-select: none; }',
         '#mm-panel .mm-header:active { cursor: grabbing; }',
@@ -1448,8 +1448,8 @@
             e.stopPropagation();
             ctSizeStep = (ctSizeStep + 1) % 3;
             p.classList.remove('ct-size-lg','ct-size-xl');
-            if (ctSizeStep === 1) { p.classList.add('ct-size-lg'); sizeBtn.setAttribute('data-tip','Large \u2014 click for XL'); }
-            else if (ctSizeStep === 2) { p.classList.add('ct-size-xl'); sizeBtn.setAttribute('data-tip','XL \u2014 click for Normal'); }
+            if (ctSizeStep === 1) { p.classList.add('ct-size-lg'); sizeBtn.setAttribute('data-tip','Larger \u2014 click for Largest'); }
+            else if (ctSizeStep === 2) { p.classList.add('ct-size-xl'); sizeBtn.setAttribute('data-tip','Largest \u2014 click for Normal'); }
             else { sizeBtn.setAttribute('data-tip','Normal \u2014 click to enlarge'); }
         });
         var minBtn = document.getElementById('mm-min');
