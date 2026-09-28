@@ -1110,8 +1110,20 @@
         });
         btn.addEventListener('click', function(e) { if (isDragging) { e.stopImmediatePropagation(); isDragging = false; } }, true);
         document.body.appendChild(btn);
+        // v42.9 ON-SCREEN CLAMP: a saved drag position could be off-screen (window resized/smaller),
+        // making the launcher 'disappear'. Validate the saved coords are within the viewport; if not,
+        // discard them and fall back to the default bottom-right corner so the button is always visible.
         var saved = GM_getValue('btnPos', null);
-        if (saved) { var pos = JSON.parse(saved); btn.style.right = 'auto'; btn.style.bottom = 'auto'; btn.style.left = pos.left; btn.style.top = pos.top; }
+        if (saved) {
+            try {
+                var pos = JSON.parse(saved);
+                var L = parseInt(pos.left, 10), T = parseInt(pos.top, 10);
+                var onScreen = !isNaN(L) && !isNaN(T) && L >= 0 && T >= 0
+                    && L <= (window.innerWidth - 40) && T <= (window.innerHeight - 30);
+                if (onScreen) { btn.style.right = 'auto'; btn.style.bottom = 'auto'; btn.style.left = pos.left; btn.style.top = pos.top; }
+                else { GM_setValue('btnPos', ''); }   // bad/off-screen -> reset to default corner
+            } catch(e) { GM_setValue('btnPos', ''); }
+        }
         return btn;
     }
 
@@ -1405,7 +1417,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.8</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.9</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -2963,7 +2975,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.8 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.9 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
