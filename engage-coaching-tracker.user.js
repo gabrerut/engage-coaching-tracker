@@ -1403,7 +1403,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.5</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.6</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -2505,6 +2505,36 @@
             var login = decodeURIComponent(href.substring(href.lastIndexOf('=') + 1)).trim().toLowerCase();
             if (!login) continue;
 
+            // v42.6 METRIC FROM DOM ORDER — most reliable. Column order (confirmed from live table):
+            //   Site | Pre Week Begin | METRIC NAME | Form URL(=this Coaching Link anchor) | Associate ID...
+            // So Metric Name is the CELL IMMEDIATELY BEFORE this anchor in DOM order. Walk backwards
+            // from the anchor over the flat cell stream (role=button / td) and take the first
+            // metric-ish cell. Reading the REAL DOM (not a reconstructed array) avoids the cross-row
+            // misalignment that mislabeled classifications (e.g. First Pass Yield shown as Missing Items).
+            var domMetric = '';
+            (function(){
+                function metricish(v){
+                    v = (v||'').trim();
+                    return !!v && /[A-Za-z]/.test(v) && !SITE_CODE_RE.test(v)
+                        && !/^\d/.test(v) && !/\d{2}:\d{2}/.test(v)
+                        && !/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(v)
+                        && !/^coaching link$/i.test(v) && !/^(FIXED|FLEX|Veteran|LC\d)/i.test(v);
+                }
+                // Build an ordered list of all cell-like nodes; find the anchor's cell; step back.
+                var all = [].slice.call(document.querySelectorAll('td, th, [role="gridcell"], [role="button"], a'));
+                var ai = all.indexOf(a);
+                if (ai === -1) {
+                    // anchor not itself in the list — find the cell containing it
+                    for (var z = 0; z < all.length; z++) { if (all[z].contains && all[z].contains(a)) { ai = z; break; } }
+                }
+                if (ai > 0) {
+                    for (var b = ai - 1; b >= 0 && b >= ai - 3; b--) {
+                        var tx = (all[b].textContent || '').trim();
+                        if (metricish(tx)) { domMetric = tx; break; }
+                    }
+                }
+            })();
+
             // Gather this row's cell texts, in order.
             var cells = [];
             var tr = a.closest ? a.closest('tr') : null;
@@ -2630,6 +2660,7 @@
                 }
             }
 
+            if (domMetric) metric = domMetric;   // v42.6: DOM-order metric is authoritative
             if (rowSite) qsSiteTally[rowSite] = (qsSiteTally[rowSite] || 0) + 1;
             var key = login + '|' + metric;
             if (!store[key]) {
@@ -2918,7 +2949,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.5 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.6 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
