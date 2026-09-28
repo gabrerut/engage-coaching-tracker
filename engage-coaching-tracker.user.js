@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = '42.12';
+    var CURRENT_VERSION = '42.13';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -738,7 +738,7 @@
         '#mm-btn.loading .mm-loader { display: inline-block; width: 12px; height: 12px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: mm-spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }',
         '.mm-badge { display: inline-block; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-right: 4px; margin-top: 2px; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
         '.mm-row { background: #FFF0F0 !important; border-left: 4px solid #FF4444 !important; }',
-        '#mm-panel { position: fixed; bottom: 80px; right: 20px; z-index: 99999; background: #fff; color: #333; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; width: 480px; max-height: min(600px, calc(100vh - 100px)); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); display: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
+        '#mm-panel { position: fixed; bottom: 80px; right: 20px; z-index: 100001; background: #fff; color: #333; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; width: 480px; max-height: min(600px, calc(100vh - 100px)); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); display: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
         '#mm-panel.visible { display: flex; flex-direction: column; }',
         '#mm-panel.ct-size-lg { width: 640px; max-height: min(760px, calc(100vh - 60px)); }',
         '#mm-panel.ct-size-xl { width: 820px; max-height: min(880px, calc(100vh - 40px)); }',
