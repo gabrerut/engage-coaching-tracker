@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Engage Coaching Tracker
 // @namespace    http://tampermonkey.net/
-// @version      42.12
+// @version      42.11
 // @description  Elevate + Positive coaching tracker on QuickSight. Auto-pulls the coaching lists, cross-references the live Find People on-site roster, and flags on-site AAs with pending coachings. Firebase-synced completions, one-click Done, live in-progress claims. Auto-updates from GitHub.
 // @author       Orcha + Eitan Wiernik + branoble + gabrerut
 // @match        https://atoz.amazon.work/engage/*
@@ -2975,7 +2975,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.10 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v' + CURRENT_VERSION + ' \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
