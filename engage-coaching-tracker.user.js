@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Engage Coaching Tracker
 // @namespace    http://tampermonkey.net/
-// @version      42.4
+// @version      42.5
 // @description  Elevate + Positive coaching tracker on QuickSight. Auto-pulls the coaching lists, cross-references the live Find People on-site roster, and flags on-site AAs with pending coachings. Firebase-synced completions, one-click Done, live in-progress claims. Auto-updates from GitHub.
 // @author       Orcha + Eitan Wiernik + branoble + gabrerut
 // @match        https://atoz.amazon.work/engage/*
@@ -1403,7 +1403,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.3</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.5</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -2376,12 +2376,27 @@
         var arr = j && j.associates ? j.associates : (Array.isArray(j) ? j : null);
         if (!arr) return;
         var next = {};
-        arr.forEach(function(p){ var id = (p.associateId || '').trim().toLowerCase(); if (id) next[id] = true; });
+        var excluded = 0;
+        // v42.5 EXCLUDE PUNCHED-OUT AAs. Find People still LISTS associates who punched out / ended
+        // shift (their process = 'PunchOut' or 'PunchOut/EOS'). Those are NOT on-site — including them
+        // violated the on-site rule (a clocked-out AA got flagged). Skip any associate whose function
+        // or sub-process indicates PunchOut/EOS. Check several possible field names defensively.
+        function isPunchedOut(pp){
+            var vals = [pp.function, pp.subProcess, pp.subProcessPath, pp.subprocess, pp.processPath, pp.lastEvent, pp.process, pp.status]
+                .map(function(v){ return (v == null ? '' : String(v)).toLowerCase(); }).join(' | ');
+            return /punch\s*out|punchout|\beos\b|end of shift|clocked out|clock out/.test(vals);
+        }
+        arr.forEach(function(pp){
+            var id = (pp.associateId || '').trim().toLowerCase();
+            if (!id) return;
+            if (isPunchedOut(pp)) { excluded++; return; }   // punched out -> NOT on site
+            next[id] = true;
+        });
         onSiteLogins = next;
         onSiteCount = Object.keys(next).length;
         fpLastUpdate = Date.now();
         fpRosterSource = 'api';   // v41.10: API is authoritative — the exact Find People on-site set.
-        console.log('[CoachTracker][FP] on-site roster: ' + onSiteCount + ' associates');
+        console.log('[CoachTracker][FP] on-site roster: ' + onSiteCount + ' on site (' + excluded + ' punched-out excluded)');
         if (typeof matchAndAlert === 'function') matchAndAlert();
     }
 
@@ -2532,8 +2547,6 @@
             // ASSOCIATE ID(login). So the metric is the cell at login_index - 2. Take it directly;
             // only if that cell is implausible do we scan the login's IMMEDIATE neighborhood (not the
             // whole stream) for a metric keyword.
-            var _lix = -1;
-            for (var mi = 0; mi < cells.length; mi++) { if ((cells[mi]||'').trim().toLowerCase() === login) { _lix = mi; break; } }
             function _isMetricish(v){
                 v = (v||'').trim();
                 return !!v && /[A-Za-z]/.test(v) && !SITE_CODE_RE.test(v)
@@ -2541,15 +2554,27 @@
                     && !/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(v)
                     && !/^coaching link$/i.test(v) && !/^(FIXED|FLEX|Veteran|LC\d)/i.test(v);
             }
-            if (_lix >= 2) {
-                var _m2 = (cells[_lix - 2] || '').trim();
-                if (_isMetricish(_m2)) metric = _m2;
-            }
-            // Fallback: scan ONLY the 4 cells immediately before this login (its own row), not globally.
-            if (!metric && _lix > 0) {
-                for (var mp = _lix - 1; mp >= 0 && mp >= _lix - 4; mp--) {
+            // v42.4 METRIC CAPTURE — anchor off the ROW POSITION of THIS coaching row, robust for
+            // both layouts. The metric is 1-2 cells BEFORE the "Coaching Link" cell (Metric Name is
+            // immediately before Form URL). Find the anchor cell index first (always present since we
+            // iterate anchors); fall back to the login-text cell. Then read the nearest metric-ish
+            // cell just before it. This fixes v42.1 where requiring an exact login-text cell match
+            // failed on the flat stream -> blank metric -> Elevate rows dropped (only 4 survived).
+            var _anchorIdx = -1;
+            for (var ci = 0; ci < cells.length; ci++) { if (/^coaching link$/i.test((cells[ci]||'').trim())) { _anchorIdx = ci; break; } }
+            if (_anchorIdx === -1) { for (var ci2 = 0; ci2 < cells.length; ci2++) { if ((cells[ci2]||'').trim().toLowerCase() === login) { _anchorIdx = ci2 - 1; break; } } }
+            // Metric = nearest metric-ish cell within the 3 cells before the anchor/login position.
+            if (_anchorIdx >= 1) {
+                for (var mp = _anchorIdx - 1; mp >= 0 && mp >= _anchorIdx - 3; mp--) {
                     var mv = (cells[mp] || '').trim();
-                    if (/Cycle Time|Pick Skip|Pass Yield|Receive|Item Quality|Missing Items|Learning Curve|Produce|Shrink|Positive/i.test(mv)) { metric = mv; break; }
+                    if (_isMetricish(mv)) { metric = mv; break; }
+                }
+            }
+            // Keyword fallback: scan the whole row's cells for a known metric keyword (last resort).
+            if (!metric) {
+                for (var kk = 0; kk < cells.length; kk++) {
+                    var kv = (cells[kk] || '').trim();
+                    if (/Cycle Time|Pick Skip|Pass Yield|Receive|Item Quality|Missing Items|Learning Curve|Produce|Shrink|Positive/i.test(kv)) { metric = kv; break; }
                 }
             }
             // v41.31 NAME CAPTURE — must be ANCHORED TO THIS ROW'S LOGIN CELL, not a global scan.
@@ -2893,7 +2918,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.3 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.5 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
