@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Engage Coaching Tracker
 // @namespace    http://tampermonkey.net/
-// @version      42.6
+// @version      42.7
 // @description  Elevate + Positive coaching tracker on QuickSight. Auto-pulls the coaching lists, cross-references the live Find People on-site roster, and flags on-site AAs with pending coachings. Firebase-synced completions, one-click Done, live in-progress claims. Auto-updates from GitHub.
 // @author       Orcha + Eitan Wiernik + branoble + gabrerut
 // @match        https://atoz.amazon.work/engage/*
