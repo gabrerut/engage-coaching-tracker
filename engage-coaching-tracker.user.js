@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Engage Coaching Tracker
 // @namespace    http://tampermonkey.net/
-// @version      42.7
+// @version      42.8
 // @description  Elevate + Positive coaching tracker on QuickSight. Auto-pulls the coaching lists, cross-references the live Find People on-site roster, and flags on-site AAs with pending coachings. Firebase-synced completions, one-click Done, live in-progress claims. Auto-updates from GitHub.
 // @author       Orcha + Eitan Wiernik + branoble + gabrerut
 // @match        https://atoz.amazon.work/engage/*
@@ -738,14 +738,16 @@
         '#mm-btn.loading .mm-loader { display: inline-block; width: 12px; height: 12px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: mm-spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }',
         '.mm-badge { display: inline-block; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-right: 4px; margin-top: 2px; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
         '.mm-row { background: #FFF0F0 !important; border-left: 4px solid #FF4444 !important; }',
-        '#mm-panel { position: fixed; bottom: 80px; right: 20px; z-index: 99999; background: #fff; color: #333; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; width: 480px; max-height: 600px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); display: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
+        '#mm-panel { position: fixed; bottom: 80px; right: 20px; z-index: 99999; background: #fff; color: #333; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; width: 480px; max-height: min(600px, calc(100vh - 100px)); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); display: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; }',
         '#mm-panel.visible { display: flex; flex-direction: column; }',
+        '#mm-panel.ct-size-lg { width: 640px; max-height: min(760px, calc(100vh - 60px)); }',
+        '#mm-panel.ct-size-xl { width: 820px; max-height: min(880px, calc(100vh - 40px)); }',
         '#mm-panel h3 { margin: 0; font-size: 15px; color: #1e293b; font-weight: 700; }',
         '#mm-panel .mm-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 16px 16px 0 0; cursor: grab; user-select: none; }',
         '#mm-panel .mm-header:active { cursor: grabbing; }',
         '#mm-panel .mm-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #94a3b8; padding: 4px 8px; border-radius: 6px; transition: all 0.15s; }',
         '#mm-panel .mm-close:hover { background: #f1f5f9; color: #475569; }',
-        '#mm-panel .mm-body { overflow-y: auto; flex: 1; padding: 0; }',
+        '#mm-panel .mm-body { overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; padding: 0; -webkit-overflow-scrolling: touch; }',
         '#mm-panel .mm-list { padding: 8px 14px 14px; }',
         '#mm-panel .mm-item { padding: 12px; margin-bottom: 8px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; transition: border-color 0.15s; }',
         '#mm-panel .mm-item:hover { border-color: #cbd5e1; }',
@@ -1403,7 +1405,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.6</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.8</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -1426,6 +1428,18 @@
                 showTeamSummary();
             });
         }
+        var sizeBtn = document.getElementById('mm-size');
+        // v42.7: SIZE CYCLE Normal -> Large -> XL -> Normal (session-only, never persisted so it
+        // can't get stuck oversized). Matches the Outbound Labor Pilot resize pattern.
+        var ctSizeStep = 0;   // 0=Normal, 1=Large, 2=XL
+        if (sizeBtn) sizeBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            ctSizeStep = (ctSizeStep + 1) % 3;
+            p.classList.remove('ct-size-lg','ct-size-xl');
+            if (ctSizeStep === 1) { p.classList.add('ct-size-lg'); sizeBtn.setAttribute('data-tip','Large \u2014 click for XL'); }
+            else if (ctSizeStep === 2) { p.classList.add('ct-size-xl'); sizeBtn.setAttribute('data-tip','XL \u2014 click for Normal'); }
+            else { sizeBtn.setAttribute('data-tip','Normal \u2014 click to enlarge'); }
+        });
         var minBtn = document.getElementById('mm-min');
         if (minBtn) minBtn.addEventListener('click', function(e){ e.stopPropagation(); p.classList.toggle('minimized'); minBtn.textContent = p.classList.contains('minimized') ? '\u2610' : '\u2013'; minBtn.setAttribute('data-tip', p.classList.contains('minimized') ? 'Expand' : 'Minimize'); });
 
@@ -2949,7 +2963,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.6 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.8 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
@@ -3049,9 +3063,15 @@
     function buildLogHTML() {
         // v41.40: Coaching Log = TOOL actions only (reverted the dashboard merge — dashboard
         // completions belong in "Done Today (by leader)", not this raw tool audit trail).
-        if (!coachingLog || coachingLog.length === 0) return '<div class="ct-drop-empty">No coaching completions logged yet.</div>';
+        if (!coachingLog || coachingLog.length === 0) return '<div class="ct-drop-empty">No coaching actions logged today yet.</div>';
         var rows = '';
-        var sorted = coachingLog.slice().sort(function(a,b){ return (b.timestamp||0) - (a.timestamp||0); });
+        // v42.8: TODAY-ONLY log — entries from prior days (e.g. yesterday's DONE/UNDO) must NOT show
+        // in today's log. Daily-reset model: the log is a same-day audit trail. Filter to today.
+        var _now = Date.now();
+        var sorted = coachingLog.slice()
+            .filter(function(e){ return e && e.timestamp && isSameLocalDay(e.timestamp, _now); })
+            .sort(function(a,b){ return (b.timestamp||0) - (a.timestamp||0); });
+        if (sorted.length === 0) return '<div class="ct-drop-empty">No coaching actions logged today yet.</div>';
         for (var i = 0; i < sorted.length && i < 200; i++) {
             var e = sorted[i];
             var t = e.timestamp ? new Date(e.timestamp) : null;
@@ -3065,7 +3085,7 @@
             var rowStyle = isUndo ? ' style="background:#fef2f2;"' : '';
             rows += '<tr' + rowStyle + '><td>' + (e.login||'-') + '</td><td>' + mtr + '</td><td>' + (e.completedBy||'?') + '</td><td>' + when + '</td><td>' + actHtml + '</td></tr>';
         }
-        return '<div style="font-size:9px;color:#64748b;padding:2px 4px 6px;">Full audit trail — all leaders, newest first. \u2705 DONE / \u21A9 UNDO.</div>'
+        return '<div style="font-size:9px;color:#64748b;padding:2px 4px 6px;">Today's log — all leaders, newest first. \u2705 DONE / \u21A9 UNDO.</div>'
              + '<table class="ct-drop-table"><thead><tr><th>Assoc</th><th>Metric</th><th>By</th><th>When</th><th>Action</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
