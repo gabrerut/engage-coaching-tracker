@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Engage Coaching Tracker
 // @namespace    http://tampermonkey.net/
-// @version      43
+// @version      42.3
 // @description  Elevate + Positive coaching tracker on QuickSight. Auto-pulls the coaching lists, cross-references the live Find People on-site roster, and flags on-site AAs with pending coachings. Firebase-synced completions, one-click Done, live in-progress claims. Auto-updates from GitHub.
 // @author       Orcha + Eitan Wiernik + branoble + gabrerut
 // @match        https://atoz.amazon.work/engage/*
@@ -27,7 +27,7 @@
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
     var CURRENT_VERSION = 42;
-    function checkForUpdate() { /* disabled — no manual updates required */ }
+
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
     var GRAPHQL_ENDPOINT = 'https://atoz.amazon.work/apis/AtoZEngageNA/graphql/access';
@@ -321,7 +321,7 @@
     // === FIREBASE SYNC FOR ELEVATE DATA ===
     var FIREBASE_DB_URL = 'https://engage-coaching-tracker-default-rtdb.firebaseio.com';
     var ELEVATE_SITE_CODE = GM_getValue('elevate_site_code', '');
-    var ELEVATE_SYNC_MS = 5 * 60 * 1000; // Sync every 5 minutes
+    var ELEVATE_SYNC_MS = 10 * 60 * 1000; // v42.3: Sync every 10 minutes (lighter on PCs)
 
     function getElevateSiteCode() {
         if (ELEVATE_SITE_CODE) return ELEVATE_SITE_CODE;
@@ -581,64 +581,11 @@
     }
 
     // === ENGAGE API ===
-    function extractManagerLogins() {
-        try {
-            var urlParams = new URLSearchParams(window.location.search);
-            // Try 'filters' param (standard engage page)
-            var filters = urlParams.get('filters');
-            if (filters) {
-                var decoded = JSON.parse(filters);
-                for (var i = 0; i < decoded.length; i++) {
-                    if (decoded[i][0] === 'manager') { managerLogins = decoded[i][1].split(','); return; }
-                }
-            }
-            // Try 'managerLogin' param (team/engage page)
-            var mgr = urlParams.get('managerLogin') || urlParams.get('manager');
-            if (mgr) { managerLogins = mgr.split(','); return; }
-        } catch(e) {}
-    }
+
 
     // For /engage/team/engage pages that load manager data dynamically,
     // intercept the GraphQL responses to extract employee data directly
-    function interceptEngageResponses() {
-        var origFetch = window.fetch;
-        window.fetch = function() {
-            var args = arguments;
-            return origFetch.apply(this, args).then(function(response) {
-                try {
-                    var url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';
-                    if (url.indexOf('/graphql') !== -1 || url.indexOf('AtoZEngageNA') !== -1) {
-                        var cloned = response.clone();
-                        cloned.json().then(function(data) {
-                            var result = data && data.data && data.data.employeesWithRecommendationsBySubject;
-                            if (result && result.hits && result.hits.length > 0) {
-                                // v38: MERGE any manager logins seen in the live Engage feed — this makes the
-                                // roster auto-follow whatever managers are loaded in Engage (newly-promoted AMs
-                                // are picked up automatically, no URL editing). URL parse remains a fallback only.
-                                var mgrSet = {};
-                                managerLogins.forEach(function(m){ mgrSet[m] = true; });
-                                var before = managerLogins.length;
-                                result.hits.forEach(function(h) { if (h.managerLogin) mgrSet[h.managerLogin] = true; });
-                                managerLogins = Object.keys(mgrSet);
-                                if (managerLogins.length !== before) {
-                                    console.log('[CoachTracker] Roster auto-updated from Engage feed: ' + managerLogins.join(', '));
-                                    GM_setValue('lastManagerLogins', JSON.stringify(managerLogins));
-                                }
-                                // Use the employee data directly (dedupe by employeeId)
-                                engageEmployees = engageEmployees.concat(result.hits.filter(function(h) {
-                                    return !engageEmployees.some(function(e) { return e.employeeId === h.employeeId; });
-                                }));
-                                console.log('[CoachTracker] Intercepted ' + result.hits.length + ' employees (total: ' + engageEmployees.length + ')');
-                                dataLoaded = true;          // v38: mark ready so first render shows real data
-                                matchAndAlert();            // v38: always re-render when new employee data lands (fixes "won't load")
-                            }
-                        }).catch(function() {});
-                    }
-                } catch(e) {}
-                return response;
-            });
-        };
-    }
+
 
     function fetchEngageData(skip, allHits) {
         skip = skip || 0; allHits = allHits || [];
@@ -670,16 +617,6 @@
         });
     }
 
-    function fetchData() {
-        // (v37) Legacy meal/punch gist source removed. This tool is Elevate-coaching-only,
-        // so there is no external non-Elevate data to fetch. We keep the function (init and
-        // timers still call it) but it now just marks data ready and refreshes the view.
-        // Any cached legacy data is still honored via loadCache() for backward compatibility.
-        dataLoaded = true;
-        loadCache();
-        updateButton();
-        if (engageEmployees.length > 0) matchAndAlert();
-    }
 
     function parseData(text) {
         var lines = text.trim().split('\n');
@@ -1466,7 +1403,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.3</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -2374,29 +2311,7 @@
     }
 
     // NEW: Read error details CSV file
-    function readErrDetailsCSVFile(file) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            var count = parseErrorDetailsCSV(e.target.result);
-            if (count === -1) {
-                alert('CSV missing required column (Associate ID). Make sure you exported the "Associate Error Details" table from the QuickSight Elevate dashboard.');
-            } else {
-                var errDrop = document.getElementById('mm-errdetails-drop');
-                if (errDrop) { errDrop.className = 'mm-elevate-upload loaded'; errDrop.innerHTML = '<strong>\uD83D\uDCCB Error Details:</strong> \u2705 Uploading ' + count + ' rows...<input type="file" id="mm-errdetails-file" accept=".csv" style="display:none">'; }
-                if (engageEmployees.length > 0) matchAndAlert();
-                else updatePanel();
-                pushErrDetailsToFirebase().then(function(ok) {
-                    if (errDrop) {
-                        errDrop.innerHTML = '<strong>\uD83D\uDCCB Error Details:</strong> ' + (ok
-                            ? '\u2705 ' + Object.keys(coachingErrDetails).length + ' associates synced (' + count + ' errors)'
-                            : '\u2705 ' + Object.keys(coachingErrDetails).length + ' loaded locally (' + count + ' errors) \u2014 Firebase sync failed')
-                            + '<input type="file" id="mm-errdetails-file" accept=".csv" style="display:none">';
-                    }
-                });
-            }
-        };
-        reader.readAsText(file);
-    }
+
 
 
     // ============================================================
@@ -2536,10 +2451,17 @@
                 el = el.parentElement;
             }
         }
-        // Fallback 2: any scrollable container holding coaching links, tallest first.
-        var any = [].slice.call(document.querySelectorAll('*'))
-            .filter(function(el){ return el.scrollHeight > el.clientHeight + 50 && hasCoachLinks(el); });
-        if (any.length) { any.sort(function(a, b){ return b.scrollHeight - a.scrollHeight; }); return any[0]; }
+        // Fallback 2 (v42.2 PERF): walk UP from a coaching-link anchor to its tallest scrollable
+        // ancestor — targeted and cheap. Replaces the old querySelectorAll('*') scan (every element
+        // on the huge QuickSight DOM + a sub-query each), which was the last broad scan in the file.
+        if (link) {
+            var el2 = link.parentElement, best = null;
+            for (var d = 0; d < 20 && el2; d++) {
+                if (el2.scrollHeight > el2.clientHeight + 50) { if (!best || el2.scrollHeight > best.scrollHeight) best = el2; }
+                el2 = el2.parentElement;
+            }
+            if (best) return best;
+        }
         return null;
     }
 
@@ -2595,27 +2517,39 @@
             //   Site | Pre Week Begin | Metric Name | (Coaching Link) | Associate ID | Full Name |
             //   Assoc Type | LC Level | Today's Shift | Next Shift Date | ...
             var metric = '', fullName = '', todayShift = '', rowSite = '', rowWeek = '';
+            // rowSite / rowWeek can still come from a scan (they're the same for the whole table).
             for (var c = 0; c < cells.length; c++) {
                 var t = cells[c];
                 if (!t) continue;
-                if (!rowSite && SITE_CODE_RE.test(t)) { rowSite = t.toUpperCase(); continue; }
-                if (!rowWeek && /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(t)) { rowWeek = t; continue; }
-                // Keyword match (fast path for known metrics)
-                if (!metric && /Cycle Time|Pick Skip|Pass Yield|Receive|Item Quality|Missing Items|Learning Curve|Produce|Shrink|Positive/i.test(t)) { metric = t; continue; }
+                if (!rowSite && SITE_CODE_RE.test(t)) { rowSite = t.toUpperCase(); }
+                if (!rowWeek && /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(t)) { rowWeek = t; }
+                if (rowSite && rowWeek) break;
             }
-            // v41.26 POSITION FALLBACK — Metric Name is 2 cells BEFORE the Associate ID (login) cell:
-            //   ... Pre Week Begin(-3) | METRIC NAME(-2) | Form URL(-1) | ASSOCIATE ID(login) ...
-            // If the keyword match missed (e.g. a NEW metric like 'Produce Shrink' not in the regex),
-            // take the metric positionally so EVERY Elevate metric is captured — no hardcoded list.
-            if (!metric) {
-                var _lix = -1;
-                for (var mi = 0; mi < cells.length; mi++) { if ((cells[mi]||'').trim().toLowerCase() === login) { _lix = mi; break; } }
-                if (_lix >= 2) {
-                    var _cand = (cells[_lix - 2] || '').trim();
-                    // must be a plausible metric label (letters, not a date/site/time/number)
-                    if (_cand && /[A-Za-z]/.test(_cand) && !SITE_CODE_RE.test(_cand)
-                        && !/^\d/.test(_cand) && !/\d{2}:\d{2}/.test(_cand)
-                        && !/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(_cand)) { metric = _cand; }
+            // v41.48 METRIC CAPTURE — ANCHORED TO THIS ROW'S LOGIN CELL (was a GLOBAL first-match scan,
+            // which on the flat DOM stream grabbed a NEIGHBORING row's metric -> wrong metric + wrong
+            // FORM LINK, e.g. grabenit=Combined Cycle Time showed 'Item Quality'). The confirmed column
+            // order is: ... Pre Week Begin(-3) | METRIC NAME(-2) | Form URL / Coaching Link(-1) |
+            // ASSOCIATE ID(login). So the metric is the cell at login_index - 2. Take it directly;
+            // only if that cell is implausible do we scan the login's IMMEDIATE neighborhood (not the
+            // whole stream) for a metric keyword.
+            var _lix = -1;
+            for (var mi = 0; mi < cells.length; mi++) { if ((cells[mi]||'').trim().toLowerCase() === login) { _lix = mi; break; } }
+            function _isMetricish(v){
+                v = (v||'').trim();
+                return !!v && /[A-Za-z]/.test(v) && !SITE_CODE_RE.test(v)
+                    && !/^\d/.test(v) && !/\d{2}:\d{2}/.test(v)
+                    && !/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(v)
+                    && !/^coaching link$/i.test(v) && !/^(FIXED|FLEX|Veteran|LC\d)/i.test(v);
+            }
+            if (_lix >= 2) {
+                var _m2 = (cells[_lix - 2] || '').trim();
+                if (_isMetricish(_m2)) metric = _m2;
+            }
+            // Fallback: scan ONLY the 4 cells immediately before this login (its own row), not globally.
+            if (!metric && _lix > 0) {
+                for (var mp = _lix - 1; mp >= 0 && mp >= _lix - 4; mp--) {
+                    var mv = (cells[mp] || '').trim();
+                    if (/Cycle Time|Pick Skip|Pass Yield|Receive|Item Quality|Missing Items|Learning Curve|Produce|Shrink|Positive/i.test(mv)) { metric = mv; break; }
                 }
             }
             // v41.31 NAME CAPTURE — must be ANCHORED TO THIS ROW'S LOGIN CELL, not a global scan.
@@ -2959,7 +2893,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.3 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
@@ -2999,21 +2933,7 @@
         } catch (e) { /* offline: keep local claims */ }
     }
 
-    function setClaim(login, metric) {
-        var leader = getLeaderLogin();
-        if (!leader) return;
-        var key = claimKey(login, metric);
-        claims[key] = { by: leader, ts: Date.now() };
-        // Firebase RTDB: write the single claim key (PUT to /claims/<key>)
-        firebaseRequest('claims/' + encodeURIComponent(key), 'PUT', { by: leader, ts: Date.now() }).catch(function(){});
-        if (typeof updatePanel === 'function') updatePanel();
-    }
 
-    function clearClaim(login, metric) {
-        var key = claimKey(login, metric);
-        delete claims[key];
-        firebaseRequest('claims/' + encodeURIComponent(key), 'PUT', null).catch(function(){});
-    }
 
 
 
@@ -3323,7 +3243,7 @@
             });
         };
         setTimeout(qsKick, 6000);           // first run = both tabs
-        setInterval(qsKick, 5 * 60 * 1000); // subsequent runs = both only when idle
+        setInterval(qsKick, 10 * 60 * 1000); // subsequent runs = both only when idle
         // LIVE on-site from Find People API (cross-domain via GM_xmlhttpRequest). Needs the site ID
         // captured once from Find People. Poll for it, then fetch the roster and keep it fresh (90s).
         (function(){
@@ -3335,10 +3255,10 @@
                 if (tries > 40) clearInterval(poll);
             }, 3000);
         })();
-        setInterval(function(){ if (!fpSiteId) { try { fpSiteId = GM_getValue('fp_site_id',''); } catch(e){} } if (fpSiteId) fpFetchRoster(); }, 90 * 1000);
+        setInterval(function(){ if (!fpSiteId) { try { fpSiteId = GM_getValue('fp_site_id',''); } catch(e){} } if (fpSiteId) fpFetchRoster(); }, 3 * 60 * 1000);   // v42.3: 3-min roster (was 90s)
         setInterval(function(){ pullElevateFromFirebase(); }, ELEVATE_SYNC_MS);
-        setInterval(function(){ pullCoachingLogFromFirebase(); }, 2 * 60 * 1000);
-        setInterval(function(){ pullClaims(); }, 45 * 1000);
+        setInterval(function(){ pullCoachingLogFromFirebase(); }, 5 * 60 * 1000);   // v42.3: 5-min (was 2)
+        setInterval(function(){ pullClaims(); }, 2 * 60 * 1000);   // v42.3: 2-min (was 45s)
         setTimeout(function(){ pullClaims(); }, 3000);
         return;
     }
