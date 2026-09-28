@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = 42;
+    var CURRENT_VERSION = '42.10';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -1417,7 +1417,7 @@
     function createPanel() {
         var p = document.createElement('div');
         p.id = 'mm-panel';
-        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.9</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
+        p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v42.10</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
         document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
@@ -2975,7 +2975,7 @@
             console.log('[CoachTracker][QS] scraped ' + count + ' rows -> pushing to Firebase (' + site + ')');
             var when = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             pushElevateToFirebase(true).then(function(ok){
-                qsStatus(ok ? ('v42.9 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
+                qsStatus(ok ? ('v42.10 \u00b7 ' + count + ' rows synced \u2713 ' + when) : (count + ' scraped \u2014 Firebase BLOCKED (allow connection?)'), ok);
                 console.log('[CoachTracker][QS] Firebase push ' + (ok ? 'OK' : 'FAILED'));
             }).catch(function(){ qsStatus(count + ' scraped \u2014 Firebase error', false); });
             pushCoachingLogToFirebase();
@@ -3305,8 +3305,11 @@
 
     if (IS_QUICKSIGHT) {
         // -------- QuickSight tab: FULL PANEL — coachings (local scrape) + live on-site (Find People API) --------
-        console.log('%c[CoachTracker] v42 QUICKSIGHT — coaching scrape + live Find People on-site', 'background:#0f2d4a;color:#fff;padding:2px 6px;border-radius:3px;');
+        console.log('%c[CoachTracker] v' + CURRENT_VERSION + ' QUICKSIGHT — coaching scrape + live Find People on-site', 'background:#0f2d4a;color:#fff;padding:2px 6px;border-radius:3px;');
         createButton();
+        // v42.9: self-heal — if QuickSight's SPA ever removes our button from the DOM,
+        // recreate it. Cheap check every 10s.
+        setInterval(function(){ if (!document.getElementById('mm-btn')) { try { createButton(); updateButton(); } catch(e){} } }, 10000);
         loadElevateCache();
         loadCoachingLogCache();
         // Scrape coachings from THIS page (native), push to Firebase, and refresh the panel.
