@@ -26,7 +26,7 @@
     // via Firebase, so NO manual script updates are ever required. The old author-hosted
     // update check + "Update Available" banner (axzile / branoble gist) has been removed
     // so the team is never nagged or pushed a different version. Frozen, stable handoff.
-    var CURRENT_VERSION = '42.13';
+    var CURRENT_VERSION = '42.14';
 
 
     // (v37) Legacy meal/punch data source removed — this is now an Elevate-coaching-only tool.
@@ -823,8 +823,8 @@
         '.mm-min { background:none; border:none; color:#fff; font-size:18px; line-height:1; cursor:pointer; padding:0 6px; }'
         ,
         /* v38 flat header icons + instant CSS tooltips (MegaHelm style) */
-        '.mm-ico { background:none; border:none; color:#fff; opacity:0.82; font-size:15px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; position:relative; transition:opacity .12s ease, background .12s ease; }',
-        '.mm-ico:hover { opacity:1; background:rgba(255,255,255,0.12); }',
+        '.mm-ico { background:none; border:none; color:#475569; opacity:0.82; font-size:15px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; position:relative; transition:opacity .12s ease, background .12s ease; }',
+        '.mm-ico:hover { opacity:1; background:rgba(15,23,42,0.08); }',
         '.mm-ico[data-tip]:hover::after { content:attr(data-tip); position:absolute; top:120%; right:0; white-space:nowrap; background:#0f2d4a; color:#fff; font-size:10px; font-weight:600; padding:3px 7px; border-radius:5px; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,0.25); }',
         '.mm-more-menu { position:absolute; top:120%; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:6px; z-index:30; min-width:220px; }',
         '.mm-more-item { display:block; width:100%; text-align:left; background:none; border:none; padding:8px 10px; font-size:12px; font-weight:600; color:#b91c1c; border-radius:6px; cursor:pointer; font-family:inherit; }',
@@ -1420,7 +1420,7 @@
         p.innerHTML = '<div class="mm-header" id="mm-drag-handle" style="cursor:grab;user-select:none;"><h3>\uD83D\uDEA8 Coaching Tracker <span style=\"font-size:9px;font-weight:600;color:#ff9900;vertical-align:middle;\">v' + CURRENT_VERSION + '</span></h3><div style="display:flex;align-items:center;gap:2px;position:relative;"><button class="mm-ico" id="mm-more" data-tip="More">\u22EF</button><div id="mm-more-menu" class="mm-more-menu" style="display:none;"><button id="mm-teamsummary" class="mm-more-item mm-more-item-neutral">\uD83C\uDFC6 Team coaching summary</button><button id="mm-markall" class="mm-more-item">\u2713 Mark ALL pending complete</button></div><button class="mm-ico" id="mm-size" data-tip="Resize">\u2922</button><button class="mm-ico" id="mm-min" data-tip="Minimize">\u2013</button><button class="mm-ico mm-close" id="mm-close" data-tip="Close">&times;</button></div></div><div class="mm-body"><div id="mm-content"></div></div>';
         document.body.appendChild(p);
         attachDashListeners(document.getElementById('mm-content'));
-        document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); };
+        document.getElementById('mm-close').onclick = function() { p.classList.remove('visible'); var _b = document.getElementById('mm-btn'); if (_b) _b.style.display = ''; };
         // v38: ⋯ overflow menu (hidden mark-all, guarded by confirm)
         var moreBtn = document.getElementById('mm-more');
         var moreMenu = document.getElementById('mm-more-menu');
@@ -1487,6 +1487,10 @@
         var p = document.getElementById('mm-panel');
         if (!p) p = createPanel();
         p.classList.toggle('visible');
+        // v42.13: hide the launcher while the panel is open so it can never overlap or
+        // intercept clicks on the header buttons (Resize / More). Restored on close.
+        var _b = document.getElementById('mm-btn');
+        if (_b) _b.style.display = p.classList.contains('visible') ? 'none' : '';
         updatePanel();
     }
 
@@ -3309,7 +3313,7 @@
         createButton();
         // v42.9: self-heal — if QuickSight's SPA ever removes our button from the DOM,
         // recreate it. Cheap check every 10s.
-        setInterval(function(){ if (!document.getElementById('mm-btn')) { try { createButton(); updateButton(); } catch(e){} } }, 10000);
+        setInterval(function(){ if (!document.getElementById('mm-btn')) { try { createButton(); updateButton(); var _p = document.getElementById('mm-panel'); var _b = document.getElementById('mm-btn'); if (_b && _p && _p.classList.contains('visible')) _b.style.display = 'none'; } catch(e){} } }, 10000);
         loadElevateCache();
         loadCoachingLogCache();
         // Scrape coachings from THIS page (native), push to Firebase, and refresh the panel.
